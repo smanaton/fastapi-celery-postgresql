@@ -1,0 +1,37 @@
+@startuml Complete Services
+
+participant Client
+participant "Server" as Server
+participant "Server:service" as ServerS
+database DB
+queue Redis
+participant "Celery Worker" as Worker
+
+activate ServerS
+
+Client -> Server: Do Task
+activate Server
+
+Server -> DB: Create Task
+Server -> Redis: Assign Task
+
+Server -> Client: Task Created
+deactivate Server
+
+Worker <- Redis: Do Task
+activate Worker
+
+loop
+    Worker -> Redis: Task Progress
+    ServerS <- Redis: Task Progress
+    ServerS --> Client: Task Progress
+end loop
+Worker -> Redis: Task Done
+deactivate Worker
+
+ServerS <- Redis: Task Done
+ServerS -> DB: Update Task
+ServerS --> Client: Task Done
+
+
+@enduml

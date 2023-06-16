@@ -1,0 +1,30 @@
+@startuml Simple Services
+
+participant Client
+participant "Server" as Server
+queue Redis
+participant "Celery Worker" as Worker
+
+
+Client -> Server: Do Task
+activate Server
+
+Server -> Redis: Assign Task
+
+Worker <- Redis: Do Task
+activate Worker
+
+Client <- Server: Task Created
+deactivate Server
+
+loop until task done
+    Client -> Server: Query Task
+    Server -> Redis: Query Task
+    Server <- Redis: Task Status
+    Client <- Server: Task Status
+end loop
+
+Worker -> Redis: Task Done
+deactivate Worker
+
+@enduml
