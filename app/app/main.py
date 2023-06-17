@@ -10,7 +10,7 @@ from .tasks import (
     create_short_task,
     create_medium_task,
     create_long_task,
-    celery,
+    app as celery_app,
 )
 
 from pprint import pprint
@@ -163,7 +163,7 @@ def read_task(task_id: str, db: Session = Depends(get_db)):
 
     pprint(db_task.dict())
 
-    task_result = AsyncResult(db_task.task_uuid, app=celery)
+    task_result = AsyncResult(db_task.task_uuid, app=celery_app)
     # task_result = app.AsyncResult(task_id)
 
     # PENDING (waiting for execution or unknown task id)

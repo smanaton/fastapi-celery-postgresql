@@ -4,8 +4,10 @@ participant Client
 participant "Server" as Server
 participant "Server:service" as ServerS
 database DB
+box "Celery Ecosystem"
 queue Redis
 participant "Celery Worker" as Worker
+end box
 
 activate ServerS
 
@@ -13,23 +15,23 @@ Client -> Server: Do Task
 activate Server
 
 Server -> DB: Create Task
-Server -> Redis: Assign Task
+Server -> Redis: Assign Celery Task
 
 Server -> Client: Task Created
 deactivate Server
 
-Worker <- Redis: Do Task
+Worker <- Redis: Do Celery Task
 activate Worker
 
 loop
-    Worker -> Redis: Task Progress
-    ServerS <- Redis: Task Progress
+    Worker -> Redis: Celery Task Progress
+    ServerS <- Redis: Celery Task Progress
     ServerS --> Client: Task Progress
 end loop
-Worker -> Redis: Task Done
+Worker -> Redis: Celery Task Done
 deactivate Worker
 
-ServerS <- Redis: Task Done
+ServerS <- Redis: Celery Task Done
 ServerS -> DB: Update Task
 ServerS --> Client: Task Done
 
