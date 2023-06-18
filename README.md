@@ -18,8 +18,14 @@ Workflow:
 
 _NOTE_:
 
-- `Task` is for frontend user. Its schemas are defined by custom FastAPI `App`
-- `Celery Task` is for internal celery-related services and used by the backend. Its schemas are fixed and defined by `Celery`, seeing [Task](https://docs.celeryq.dev/en/latest/internals/reference/celery.backends.database.models.html#celery.backends.database.models)
+- `Task` are defined by custom FastAPI `App` frontend user.
+- `Celery Task` are defined by `Celery` for internal
+  - [task model](https://docs.celeryq.dev/en/latest/internals/reference/celery.backends.database.models.html#celery.backends.database.models.Task)
+  - [result backend](https://docs.celeryq.dev/en/stable/userguide/tasks.html#result-backends)
+- Update `Celery Task` progress with custom states
+  - [celery task getting progress · GitHub](https://gist.github.com/siddhism/6399964b89ce734990763c922c3556da)
+  - [python - How to retrieve meta from celery backend storage - Stack Overflow](https://stackoverflow.com/questions/34208399/how-to-retrieve-meta-from-celery-backend-storage)
+
 
 ## Get Started
 

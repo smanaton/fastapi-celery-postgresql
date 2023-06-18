@@ -17,6 +17,7 @@ from pprint import pprint
 from .database import SessionLocal, engine
 from . import crud, models, schemas
 
+# Create table if not exist
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -29,7 +30,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
 
 html_content = """
 <html>
@@ -58,8 +58,16 @@ html_content = """
                 <tr>
                 <th>ID</th>
                 <th>Type</th>
-                <th>Status</th>
-                <th>Result</th>
+                <th>C_ID</th>
+                <th>C_Status</th>
+                <th>C_Result</th>
+                <th>C_DateDone</th>
+                <th>C_Name</th>
+                <th>C_Args</th>
+                <th>C_Kwargs</th>
+                <th>C_Worker</th>
+                <th>C_Retries</th>
+                <th>C_Queue</th>
                 </tr>
             </thead>
             <tbody id="tasks">
@@ -83,7 +91,8 @@ html_content = """
     })
     .then(response => response.json())
     .then(task => {
-        getStatus(task.id)
+        const task_id = task.id 
+        getStatus(task_id)
     })
     }
 
@@ -97,22 +106,36 @@ html_content = """
     .then(response => response.json())
     .then(task => {
         console.log(task)
+        if (!task) {
+            setTimeout(function() {
+                getStatus(taskID);
+            }, 1000);
+            return false
+        }
         const html = `
         <tr>
-            <td>${taskID}</td>
+            <td>${task.id}</td>
             <td>${task.type}</td>
-            <td>${task.task_uuid}</td>
-            <td>${task.task_name}</td>
-            <td>${task.task_status}</td>
-            <td>${task.task_result}</td>
+            <td>${task.celery_task_id}</td>
+            <td>${task.celery_task_status}</td>
+            <td>${task.celery_task_result}</td>
+            <td>${task.celery_task_date_done}</td>
+            <td>${task.celery_task_name}</td>
+            <td>${task.celery_task_status}</td>
+            <td>${task.celery_task_args}</td>
+            <td>${task.celery_task_kwargs}</td>
+            <td>${task.celery_task_worker}</td>
+            <td>${task.celery_task_retries}</td>
+            <td>${task.celery_task_queue}</td>
         </tr>`;
         const newRow = document.getElementById('tasks').insertRow(0);
         newRow.innerHTML = html;
 
-        const taskStatus = task.task_status;
-        if (taskStatus === 'SUCCESS' || taskStatus === 'FAILURE') return false;
+        const taskStatus = task.celery_task_status;
+        if ( taskStatus === 'SUCCESS' || taskStatus === 'FAILURE') return true;
+
         setTimeout(function() {
-        getStatus(task.id);
+            getStatus(taskID);
         }, 1000);
     })
     .catch(err => console.log(err));
@@ -129,7 +152,7 @@ async def read_index():
 
 @app.post("/tasks", status_code=201, response_model=schemas.Task)
 def create_task(task: schemas.TaskIn, db: Session = Depends(get_db)):
-    task_result: AsyncResult = None
+    task_result: AsyncResult
 
     if task.type == schemas.TaskType.short:
         task_result = create_short_task.delay()
@@ -140,10 +163,7 @@ def create_task(task: schemas.TaskIn, db: Session = Depends(get_db)):
 
     db_task = models.Task(
         type=task.type,
-        task_uuid=task_result.id,
-        task_name=task_result.name,
-        task_status=task_result.status,
-        task_result=task_result.result,
+        celery_task_id=task_result.id,
     )
 
     db.add(db_task)
@@ -154,7 +174,6 @@ def create_task(task: schemas.TaskIn, db: Session = Depends(get_db)):
 
     return db_task
 
-
 @app.get("/tasks/{task_id}", response_model=schemas.Task)
 def read_task(task_id: str, db: Session = Depends(get_db)):
     db_task: models.Task = (
@@ -163,7 +182,7 @@ def read_task(task_id: str, db: Session = Depends(get_db)):
 
     pprint(db_task.dict())
 
-    task_result = AsyncResult(db_task.task_uuid, app=celery_app)
+    task_result = AsyncResult(db_task.celery_task_id, app=celery_app)
     # task_result = app.AsyncResult(task_id)
 
     # PENDING (waiting for execution or unknown task id)
@@ -173,11 +192,19 @@ def read_task(task_id: str, db: Session = Depends(get_db)):
     # else:
     #     result = None
 
-    if task_result.status != db_task.task_status:
-        db_task.task_name = (task_result.name,)
-        db_task.task_result = task_result.result
-        db_task.task_status = task_result.status
+    db_task.celery_task_status = task_result.status
+    db_task.celery_task_result = task_result.result
+    db_task.celery_date_done = task_result.date_done
 
-        db.commit()
+    # extended fields, ref: [TaskExtended](https://docs.celeryq.dev/en/latest/internals/reference/celery.backends.database.models.html#celery.backends.database.models.TaskExtended`)
+    db_task.celery_task_name = task_result.name
+    # TODO: pickle values here
+    # db_task.celery_task_args = task_result.args
+    # db_task.celery_task_kwargs = task_result.kwargs
+    db_task.celery_task_worker = task_result.worker
+    db_task.celery_task_retries = task_result.retries
+    db_task.celery_task_queue = task_result.queue
+
+    db.commit()
 
     return db_task

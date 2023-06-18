@@ -32,7 +32,7 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile.dev
-    command: celery --app app.tasks:celery worker --loglevel=info --logfile=logs/celery.log
+    command: celery --app app.tasks:app worker --loglevel=info --logfile=logs/celery.log
     volumes:
       - ./app:/usr/src/app # for development mode
     environment:
@@ -49,7 +49,7 @@ services:
   flower:
     image: mher/flower
     ports:
-      - 5555:5555
+      - 5566:5555
     environment:
       - BROKER_URL=redis://redis:6379/0
       - RESULT_BACKEND=redis://redis:6379/0

@@ -16,6 +16,9 @@ activate Server
 
 Server -> DB: Create Task
 Server -> Redis: Assign Celery Task
+note right of Redis
+    Redis has **broker** and **backend** roles
+end note
 
 Server -> Client: Task Created
 deactivate Server
