@@ -1,4 +1,4 @@
-@startuml Complete Services
+@startuml workflow
 
 participant Client
 participant "Server" as Server
