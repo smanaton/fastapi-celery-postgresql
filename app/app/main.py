@@ -1,3 +1,7 @@
+import asyncio
+import os
+import logging
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from enum import Enum
@@ -17,11 +21,45 @@ from pprint import pprint
 from .database import SessionLocal, engine
 from . import crud, models, schemas
 
+logger = logging.getLogger(__name__)
+
 # Create table if not exist
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+def make_service():
+    running = True
+    def service():
+        running = True
+
+    async def start():
+        logger.info(f"Start background service")
+        while running:
+            logger.info(f"Run background service...")
+            # Sleep for 1 second
+            await asyncio.sleep(1)
+        logger.info(f"Finish background service")
+
+    async def stop():
+        running = False
+
+    start.stop = stop
+    return start
+
+service = make_service()
+
+@app.on_event("startup")
+async def startup():
+    logger.info(f"PID[{os.getpid()}] app startup")
+    # schedule a task on main loop
+    asyncio.create_task(service.start())
+
+@app.on_event("shutdown")
+async def shutdown():
+    # close ProcessPoolExecutor
+    logger.info(f"PID[{os.getpid()}] app shutdown")
+    await service.stop()
 
 # Dependency
 def get_db():
