@@ -28,38 +28,87 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-def make_service():
-    running = True
-    def service():
-        running = True
+print(f"PID[{os.getpid()}] app")
 
-    async def start():
-        logger.info(f"Start background service")
-        while running:
-            logger.info(f"Run background service...")
+class BackgroundService:
+    
+    def __init__(self, loop: asyncio.AbstractEventLoop, tasks: list):
+        self.loop = loop
+        self.running = False
+        self.tasks = tasks
+        
+    async def work(self):
+        print(f"Start background service")
+        
+        while True:
+            print(f"Run background service... total_tasks[{len(self.tasks)}]")
+            db = SessionLocal()    
+            for task_id in self.tasks:
+                print(f"update task, task_id[{task_id}] total_tasks[{len(self.tasks)}]")
+                
+                db_task: models.Task = (
+                    db.query(models.Task).filter(models.Task.id == task_id).first()
+                )
+                task_result = AsyncResult(db_task.celery_task_id, app=celery_app)
+                # task_result = app.AsyncResult(task_id)
+
+                # PENDING (waiting for execution or unknown task id)
+                # print(task_result.result)
+                # if task_result.state == "SUCCESS":
+                #     result = task_result.result
+                # else:
+                #     result = None
+
+                db_task.celery_task_status = task_result.status
+                db_task.celery_task_result = task_result.result
+                db_task.celery_date_done = task_result.date_done
+
+                # extended fields, ref: [TaskExtended](https://docs.celeryq.dev/en/latest/internals/reference/celery.backends.database.models.html#celery.backends.database.models.TaskExtended`)
+                db_task.celery_task_name = task_result.name
+                # TODO: pickle values here
+                # db_task.celery_task_args = task_result.args
+                # db_task.celery_task_kwargs = task_result.kwargs
+                db_task.celery_task_worker = task_result.worker
+                db_task.celery_task_retries = task_result.retries
+                db_task.celery_task_queue = task_result.queue
+
+                print(f"update task [{db_task.dict()}]")
+                
+                db.commit()
+                
+                if task_result.status == "SUCCESS":
+                    self.tasks.remove(task_id)
+                    
+            db.close()
             # Sleep for 1 second
-            await asyncio.sleep(1)
-        logger.info(f"Finish background service")
+            await asyncio.sleep(2)
 
-    async def stop():
-        running = False
 
-    start.stop = stop
-    return start
+    async def start(self):
+        self.task = self.loop.create_task(self.work())
+    
+    async def stop(self):
+        self.task.cancel()
+        try:
+            await self.task
+        except asyncio.CancelledError:
+            print("Clean up background service")
 
-service = make_service()
+tasks = []
+service = BackgroundService(asyncio.get_running_loop(), tasks)
 
 @app.on_event("startup")
 async def startup():
-    logger.info(f"PID[{os.getpid()}] app startup")
+    print(f"PID[{os.getpid()}] app startup")
     # schedule a task on main loop
-    asyncio.create_task(service.start())
+    await service.start()
 
 @app.on_event("shutdown")
 async def shutdown():
     # close ProcessPoolExecutor
     logger.info(f"PID[{os.getpid()}] app shutdown")
     await service.stop()
+    
 
 # Dependency
 def get_db():
@@ -199,9 +248,11 @@ def create_task(task: schemas.TaskIn, db: Session = Depends(get_db)):
     if task.type == schemas.TaskType.long:
         task_result = create_long_task.delay()
 
+    celery_task_id = task_result.id
+    
     db_task = models.Task(
         type=task.type,
-        celery_task_id=task_result.id,
+        celery_task_id=celery_task_id,
     )
 
     db.add(db_task)
@@ -210,6 +261,10 @@ def create_task(task: schemas.TaskIn, db: Session = Depends(get_db)):
 
     pprint(db_task.dict())
 
+    task_id = db_task.id
+    # global tasks
+    tasks.append(task_id)
+    
     return db_task
 
 @app.get("/tasks/{task_id}", response_model=schemas.Task)
@@ -220,29 +275,30 @@ def read_task(task_id: str, db: Session = Depends(get_db)):
 
     pprint(db_task.dict())
 
-    task_result = AsyncResult(db_task.celery_task_id, app=celery_app)
-    # task_result = app.AsyncResult(task_id)
+    # Query task status from celery app
+    # task_result = AsyncResult(db_task.celery_task_id, app=celery_app)
+    # # task_result = app.AsyncResult(task_id)
 
-    # PENDING (waiting for execution or unknown task id)
-    # print(task_result.result)
-    # if task_result.state == "SUCCESS":
-    #     result = task_result.result
-    # else:
-    #     result = None
+    # # PENDING (waiting for execution or unknown task id)
+    # # print(task_result.result)
+    # # if task_result.state == "SUCCESS":
+    # #     result = task_result.result
+    # # else:
+    # #     result = None
 
-    db_task.celery_task_status = task_result.status
-    db_task.celery_task_result = task_result.result
-    db_task.celery_date_done = task_result.date_done
+    # db_task.celery_task_status = task_result.status
+    # db_task.celery_task_result = task_result.result
+    # db_task.celery_date_done = task_result.date_done
 
-    # extended fields, ref: [TaskExtended](https://docs.celeryq.dev/en/latest/internals/reference/celery.backends.database.models.html#celery.backends.database.models.TaskExtended`)
-    db_task.celery_task_name = task_result.name
-    # TODO: pickle values here
-    # db_task.celery_task_args = task_result.args
-    # db_task.celery_task_kwargs = task_result.kwargs
-    db_task.celery_task_worker = task_result.worker
-    db_task.celery_task_retries = task_result.retries
-    db_task.celery_task_queue = task_result.queue
+    # # extended fields, ref: [TaskExtended](https://docs.celeryq.dev/en/latest/internals/reference/celery.backends.database.models.html#celery.backends.database.models.TaskExtended`)
+    # db_task.celery_task_name = task_result.name
+    # # TODO: pickle values here
+    # # db_task.celery_task_args = task_result.args
+    # # db_task.celery_task_kwargs = task_result.kwargs
+    # db_task.celery_task_worker = task_result.worker
+    # db_task.celery_task_retries = task_result.retries
+    # db_task.celery_task_queue = task_result.queue
 
-    db.commit()
+    # db.commit()
 
     return db_task
