@@ -2,7 +2,7 @@
 FROM node:latest
 
 # set work directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
 # set environment variables
 ENV HOST=0.0.0.0

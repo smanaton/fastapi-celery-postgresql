@@ -38,7 +38,7 @@ class BackgroundService:
         self.tasks = tasks
         
     async def work(self):
-        print(f"Start background service")
+        print(f"Start background service!")
         
         while True:
             print(f"Run background service... total_tasks[{len(self.tasks)}]")

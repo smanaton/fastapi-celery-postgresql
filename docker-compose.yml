@@ -7,8 +7,10 @@ services:
     ports:
       - 8000:8000
     command: uvicorn app.main:app --host 0.0.0.0 --reload
+    working_dir:
+      /app
     volumes:
-      - ./app:/usr/src/app # for development mode
+      - ./app:/app # for development mode
     environment:
       - BROKER_URL=redis://redis:6379/0
       - RESULT_BACKEND=redis://redis:6379/0 # ref: `POSTGRES_DB`
@@ -33,8 +35,10 @@ services:
       context: ./app
       dockerfile: Dockerfile.dev
     command: celery --app app.tasks:app worker --loglevel=info --logfile=logs/celery.log
+    working_dir:
+      /app
     volumes:
-      - ./app:/usr/src/app # for development mode
+      - ./app:/app # for development mode
     environment:
       - BROKER_URL=redis://redis:6379/0
       - RESULT_BACKEND=redis://redis:6379/0
@@ -70,9 +74,9 @@ services:
   #   ports:
   #     - 3000:3000
   #   working_dir:
-  #     /usr/src/app
+  #     /app
   #   command: npm run start -- --host 0.0.0.0
   #   volumes:
-  #     - ./my-website:/usr/src/app
-  #     - /usr/src/app/node_modules # exclude folder
-  #     - /usr/src/app/.docusaurus # exclude folder
+  #     - ./my-website:/app
+  #     - /app/node_modules # exclude folder
+  #     - /app/.docusaurus # exclude folder
