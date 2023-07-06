@@ -1,41 +1,75 @@
-# Website
+# My Documentation
 
 This website is built using [Docusaurus 2](https://docusaurus.io/), a modern static website generator.
 
-### Installation
+CLI:
 
-```
-$ yarn
-```
-
-### Local Development
-
-```
-$ yarn start
+```sh
+npm run install
 ```
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+dev run:
 
-### Build
-
-```
-$ yarn build
+```sh
+npm run start
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+prod run:
 
-### Deployment
-
-Using SSH:
-
-```
-$ USE_SSH=true yarn deploy
+```sh
+npm run build
+npm run serve
 ```
 
-Not using SSH:
+Docker(dev):
 
-```
-$ GIT_USER=<Your GitHub username> yarn deploy
+Use custom image to cache packages:
+
+```sh
+docker build -t website-dev -f ./Dockerfile.dev .
+docker run -it --rm \
+    -v $(pwd):/usr/src/app \
+    -v /usr/src/app/node_modules \
+    -v /usr/src/app/.docusaurus \
+    -w /usr/src/app \
+    -p 3000:3000 \
+    website-dev \
+    npm run start -- --host 0.0.0.0
 ```
 
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+or in one command(`-q` output _final image hash_):
+
+```sh
+docker run -it --rm \
+    -v $(pwd):/usr/src/app \
+    -v /usr/src/app/node_modules \
+    -v /usr/src/app/.docusaurus \
+    -w /usr/src/app \
+    -p 3000:3000 \
+    $(docker build -f ./Dockerfile.dev -q .) \
+    npm run start -- --host 0.0.0.0
+```
+
+No caching packages(using `node` image):
+
+```sh
+docker run -it --rm \
+    -v $(pwd):/usr/src/app \
+    -v /usr/src/app/node_modules \
+    -v /usr/src/app/.docusaurus \
+    -w /usr/src/app \
+    -p 3000:3000 \
+    node \
+    bash -c "npm install && npm run start"
+```
+
+Docker(prod):
+
+Use custom image to bundle app:
+
+```sh
+docker build -t website .
+docker run -it --rm \
+    -p 3000:3000 \
+    website
+```
