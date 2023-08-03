@@ -1,25 +1,35 @@
-# FastAPI + PostgresSQL + Celery Example
+# FastAPI + PostgresSQL + Celery + Redis Example
 
-An example microservices demonstrates how to perform heavy background computation task such as running machine learning model.
+An example demonstrates how to perform heavy and long-time background computation tasks(such as running a **machine learning model**) in **microservices**.
 
-Tech stack:
+This repo was built up with two services: **API** service and **Worker** service.
 
-- FastAPI
+**Service tech stack:**
+- FastAPI (api server)
+- Celery (worker)
+- PostgresSQL (persist task in the database)
+- Redis (message broker)
+
+**API Service**
+- REST API
   - create task
   - query task
-- PostgresSQL
-  - persist task
-- Celery
-  - Redis: as broker and backend of celery
-
+- Message Queue
+  - create task
+  - query task
+**Worker Service**
+- Message Queue
+  - run task
+  - send task progress
+  
 Workflow:
 
 ![workflow](./out/workflow.png)
 
 _NOTE_:
 
-- `Task` are defined by custom FastAPI `App` frontend user.
-- `Celery Task` are defined by `Celery` for internal
+- `Task` is defined by a custom FastAPI `App` frontend user.
+- `Celery Task` is defined by `Celery` for internal
   - [task model](https://docs.celeryq.dev/en/latest/internals/reference/celery.backends.database.models.html#celery.backends.database.models.Task)
   - [result backend](https://docs.celeryq.dev/en/stable/userguide/tasks.html#result-backends)
 - Update `Celery Task` progress with custom states
@@ -49,4 +59,4 @@ docker-compose down
 
 _NOTE_:
 
-- `Dockerfile.dev` is used for developing easily in container environment. All `docker compose files` here are for development.
+- `Dockerfile.dev` in `app` folder is used for development in a container environment. It builds a `virtual environment` with all dependencies installed to let you use such a `hot reload` feature when coding.
